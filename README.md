@@ -9,6 +9,7 @@ What you get by using this for development is:
 To start all services by just run
 
 ```console
+devenv shell
 devenv tasks run setup
 devenv up
 ```
@@ -154,15 +155,26 @@ This import task takes a while to finish it import the dump, and create indexing
 
 To indexing other data repository first check what repositories exist by calling:
 
-```console
-curl -X GET http://localhost:8080/config |jq -r '.endpoints_configs[].harvest_url'
-```
-
 To indexing all data repositories, run:
 
 ```console
 devenv tasks run db:indexing
 ```
+
+Or to save time and for test purpose, you can indexing for certain data repo.
+First get the available data repo urls:
+
+```console
+curl -X GET http://localhost:8080/config |jq -r '.endpoints_configs[].harvest_url'
+```
+
+inside devenv shell (first run `devenv shell` if from your own shell), run with passing a repo url:
+
+```console
+python repo-index.py <repo-url>
+```
+
+Fill `<repo-url>` with a repo url.
 
 ### Clean up and reset
 
@@ -210,3 +222,11 @@ devenv tasks run purge
 
 After this, go back to the beginning of "Get started" section and do setup again.
 
+## For maintainer
+
+For the maintainers of this repo, to update the submodules and update `uv.lock`, run:
+
+```console
+git submodule update --remote
+devenv tasks run dev:uv-sync
+```

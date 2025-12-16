@@ -305,4 +305,11 @@
     '';
     cwd = ".";
   };
+
+  tasks."dev:uv-sync" = {
+    exec = ''
+      rm -f ./uv.lock
+      uv sync
+    '';
+  };
 }
