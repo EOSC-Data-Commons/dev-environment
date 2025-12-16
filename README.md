@@ -9,6 +9,7 @@ What you get by using this for development is:
 To start all services by just run
 
 ```console
+devenv tasks run setup
 devenv up
 ```
 
@@ -95,7 +96,6 @@ git clone --recurse-submodules https://github.com/EOSC-Data-Commons/dev-environm
 You can then goes into the dev shell and setup environment by:
 
 ```console
-devenv shell
 devenv tasks run setup
 ```
 
@@ -110,7 +110,8 @@ To get an `EINFRACZ_API_KEY`, register on chat.ai.e-infra.cz/ and contact Vincen
 
 After you get the keys, set it through `secretspec`:
 
-Set up provider backendConfigure your preferred secrets storage backend:
+Set up provider backend, configure your backend using "keyring":
+(TODO: check in container, is the keyring package being provided in system.)
 
 ```console
 secretspec config init
@@ -146,7 +147,21 @@ The database was already havested and can be requst from Tobias Schweizer (@tobi
 Store the file named as `dump.sql` and run (make sure the services are all running healthy):
 
 ```console
-devenv tasks run db-setup:opensearch:create-index
+devenv tasks run db:import
+```
+
+This import task takes a while to finish it import the dump, and create indexing for a small data repository. 
+
+To indexing other data repository first check what repositories exist by calling:
+
+```console
+curl -X GET http://localhost:8080/config |jq -r '.endpoints_configs[].harvest_url'
+```
+
+To indexing all data repositories, run:
+
+```console
+devenv tasks run db:indexing
 ```
 
 ### Clean up and reset

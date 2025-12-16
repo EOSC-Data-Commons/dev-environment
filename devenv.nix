@@ -270,17 +270,23 @@
   # --- postgres
   # TODO: and run transform script
   tasks = {
-    "db-setup:psql:import" = {
+    "db:import" = {
       exec = "psql -U admin admin < dump.sql";
       status = "db-needs-import";
     };
   };
 
   # index opensearch
-  tasks."db-setup:opensearch:create-index" = {
+  tasks."db:opensearch:create-index" = {
     exec = "python create_index.py";
     cwd = "./metadata-warehouse/scripts/opensearch_data/";
-    after = [ "db-setup:psql:import" ];
+    after = [ "db:import" ];
+  };
+
+  tasks."db:indexing" = {
+    exec = ''
+      printf "hello world\n"
+    '';
   };
 
   tasks."clean:psql" = {
