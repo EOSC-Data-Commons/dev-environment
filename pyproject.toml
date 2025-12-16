@@ -1,0 +1,59 @@
+[project]
+name = "dev-environment"
+version = "0.1.0"
+description = "helper pyproject.toml to manage a shared python dev dependencies"
+readme = "README.md"
+requires-python = ">=3.12"
+
+dependencies = [
+    # data-commons-search
+    "mcp >=1.19.0",
+    "pydantic >=2.12.0",
+    "pydantic-settings >=2.11.0",
+    "httpx >=0.28.1",
+    "fastembed >=0.7.3",
+    "opensearch-py >=3.0.0",
+    # metadata-warehouse
+    # "opensearch-py", # dcs is more specific about this dependencies
+    "celery[redis]",
+    "xmltodict",
+    "jsonschema",
+    "fastembed",
+    "watchdog",
+    "fastapi[standard]",
+    "psycopg[binary]",
+]
+
+[project.optional-dependencies]
+agent = [
+    "starlette >=0.48.0",
+    "uvicorn[standard] >=0.38.0",
+    "ag-ui-protocol >=0.1.9",
+    "langchain >=1.0.2",
+    "langchain-mcp-adapters >=0.1.10",
+    "langchain-openai >=1.0.1",
+    "langchain-groq >=1.0.0",
+    # "langchain-huggingface", # This will install torch and many heavy nvidia dependencies
+]
+gpu = [
+    "fastembed-gpu >=0.5.1",
+]
+
+[dependency-groups]
+dev = [
+    # data-commons-search
+    "pytest >=8.4.2",
+    "pytest-asyncio >=1.2.0",
+    "pytest-cov >=7.0.0",
+    "mypy >=1.18.0",
+    "pre-commit >=4.3.0",
+    "mcp[cli]",
+    # metadata-warehouse
+    # "pytest", # dsc is more specific 
+    "types-xmltodict",
+    "celery-stubs",
+    "mypy",
+    "types-jsonschema",
+    "types-requests",
+    "lxml-stubs"
+]
