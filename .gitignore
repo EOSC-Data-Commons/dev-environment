@@ -1,0 +1,22 @@
+# Devenv
+.devenv*
+devenv.local.nix
+devenv.local.yaml
+
+# direnv
+.direnv
+
+# pre-commit
+.pre-commit-config.yaml
+
+# redis local data folder (devenv only)
+redis-data/
+
+# sample psql database dump
+dump.sql
+
+# requirements.txt is generated from frozen uv.lock
+requirements.txt
+
+# node modules
+node_modules/

@@ -4,6 +4,18 @@ The local development environment is built using [Nix](https://nixos.org/) and m
 This setup is **not** intended to replace the `docker-compose` recipes provided in each sub-repository. 
 Instead, it offers a **monolithic development environment** that integrates all components into a single, unified workflow.
 
+What you get by using this for development is:
+
+To start all services:
+
+```console
+devenv up
+```
+
+and can see the deployment by visiting http://localhost:5673/
+
+You can then develop inside the submodules and see the effect immediately by restarting the service (through processes composer's TUI panel start along with running `devenv up` command).
+
 Pros:
 
 - Compared to `docker-compose`, this approach manages all components in a single repository, allowing changes to be made ad hoc and tested immediately.
@@ -11,10 +23,12 @@ Pros:
 - The full deployment requires only ~60 MiB of disk space and uses nearly zero CPU when idle, since all services run as local Unix processes.
 - Cleanup is handled via predefined tasks, and all generated data remains within this repository instead of being spread across Docker volumes and sub-repositories.
 - Services are managed by [process-compose](https://github.com/F1bonacc1/process-compose), and all logs can be inspected from a single, unified interface.
+- All environment variables and configurations are set in one file (i.e `devenv.nix`), makes it easy to inspect all changes and setup.
 
 Cons:
 
-* Networking is not isolated from the host system. As a result, service ports may conflict with existing system services. In such cases, ports must be customized in `devenv.nix`.
+- Networking is not isolated from the host system. As a result, service ports may conflict with existing system services. In such cases, ports must be customized in `devenv.nix`.
+- Python environments are not separated but this can also regarded as pro because this force the python dependencies synchronous among projects.
 
 ## Getting Started
 
@@ -69,3 +83,17 @@ access-tokens = github.com=<GITHUB_TOKEN>
 ```
 
 check [here](https://devenv.sh/getting-started/#3-configure-a-github-access-token-optional) for details.
+
+### Spin up services
+
+Clone the repo with all its submodules:
+
+```console
+git clone --recurse-submodules https://github.com/EOSC-Data-Commons/dev-environment.git
+```
+
+You can then start all services by:
+
+```console
+devenv up
+```
