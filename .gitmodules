@@ -1,0 +1,9 @@
+[submodule "data-commons-search"]
+	path = data-commons-search
+	url = https://github.com/EOSC-Data-Commons/data-commons-search.git
+[submodule "matchmaker"]
+	path = matchmaker
+	url = https://github.com/EOSC-Data-Commons/matchmaker.git
+[submodule "metadata-warehouse"]
+	path = metadata-warehouse
+	url = https://github.com/EOSC-Data-Commons/metadata-warehouse.git
