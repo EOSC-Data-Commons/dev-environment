@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "matchmaker-frontend": "file:matchmaker"
+  }
+}
