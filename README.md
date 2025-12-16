@@ -6,7 +6,7 @@ Instead, it offers a **monolithic development environment** that integrates all 
 
 What you get by using this for development is:
 
-To start all services:
+To start all services by just run
 
 ```console
 devenv up
@@ -92,10 +92,11 @@ Clone the repo with all its submodules:
 git clone --recurse-submodules https://github.com/EOSC-Data-Commons/dev-environment.git
 ```
 
-You can then goes into the dev shell by:
+You can then goes into the dev shell and setup environment by:
 
 ```console
 devenv shell
+devenv tasks run setup
 ```
 
 In this shell you have all data-commons-search, warehouse-transform-tools, matchmaker installed.
@@ -137,4 +138,60 @@ You'll see all needed services are running and can visit http://localhost:5173/ 
 But when you search, you won't find any dataset because the database is empty.
 The next step will guide you to import data ready for search.
 
-### Import data for testing
+### Import data
+
+We need database include the havested data and indexing for opensearch.
+The database was already havested and can be requst from Tobias Schweizer (@tobiasschweizer).
+
+Store the file named as `dump.sql` and run (make sure the services are all running healthy):
+
+```console
+devenv tasks run db-setup:opensearch:create-index
+```
+
+### Clean up and reset
+
+#### Cleanup and re-import the database
+
+The postgresql service need keep on running to clean up the database.
+
+To clean imported data, run:
+
+```console
+devenv tasks run clean:psql
+```
+
+You can then import from dump and indexing for opensearch.
+
+#### Cleanup and reset python/npm environments
+
+To clean python venv run 
+
+```console
+devenv tasks run clean:python
+```
+
+This will delete the `venv` folder in the project (at `./.devenv/state/venv`).
+
+You can then reset the environment by `devenv tasks run setup:python`.
+
+To clean installed npm packages
+
+```console
+devenv tasks run clean:npm
+```
+
+You can then reset the environment by `devenv tasks run setup:npm`.
+
+#### Cleanup and reset the whole environment
+
+Cleanup tasks are provide to reset the environment if anything goes wrong and you want to have a clean start.
+
+To clean all caches and start environment from scratch run:
+
+```console
+devenv tasks run purge
+```
+
+After this, go back to the beginning of "Get started" section and do setup again.
+

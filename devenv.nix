@@ -43,6 +43,8 @@
     };
   };
 
+  enterShell = '''';
+
   languages = {
     javascript = {
       enable = true;
@@ -68,34 +70,22 @@
     '';
   };
 
-  # install required python dependencies
-  # dependencies are managed by a `uv.lock` to conform with all submodules in python
-  tasks."python:install-dependencies" = {
-    exec = "uv export --frozen -o requirements.txt && uv pip install -r requirements.txt";
+  tasks."setup:python:data-commons-search" = {
+    exec = "uv pip install -e ./data-commons-search[agent]";
     cwd = ".";
   };
 
-  tasks."python:install-data-commons-search" = {
-    exec = "uv pip install -e ./data-commons-search/[agent]";
-    cwd = ".";
-    before = [
-      "devenv:processes:data-commons-search"
-    ];
-    after = [
-      "python:install-dependencies"
-    ];
-  };
-
-  tasks."python:install-metadata-warehouse" = {
+  tasks."setup:python:metadata-warehouse" = {
     exec = "uv pip install -e ./metadata-warehouse/";
     cwd = ".";
-    # before = [
-    #   "devenv:processes:metadata-warehouse-tasks"
-    #   "devenv:processes:metadata-warehouse-transform-api"
-    # ];
-    after = [
-      "python:install-dependencies"
-    ];
+  };
+
+  tasks."clean:python" = {
+    exec = ''
+      rm -rf ./.devenv/state/venv/
+      rm -f ./requirements.txt
+    '';
+    cwd = ".";
   };
 
   # celery as task worker
@@ -147,10 +137,6 @@
   services.postgres = {
     enable = true;
     package = pkgs.postgresql_17;
-    # TODO: somehow postgres user can not added
-    # initialScript = ''
-    #   CREATE ROLE postgres SUPERUSER;
-    # '';
     listen_addresses = "127.0.0.1";
     port = 5432;
     initialDatabases = [
@@ -186,10 +172,10 @@
       default_llm_model = "einfracz/gpt-oss-120b";
     in
     {
-      exec =
-        "DEFAULT_LLM_MODEL=${default_llm_model} SERVER_PORT=${port} OPENSEARCH_URL=${opensearch_url}"
-        + " "
-        + "uv run uvicorn data_commons_search.main:app --host ${host} --port ${port} --workers ${num_works} --log-config logging.yml";
+      exec = ''
+        DEFAULT_LLM_MODEL=${default_llm_model} SERVER_PORT=${port} OPENSEARCH_URL=${opensearch_url}
+        uvicorn data_commons_search.main:app --host ${host} --port ${port} --workers ${num_works} --log-config logging.yml
+      '';
       cwd = "./data-commons-search/";
       process-compose = {
         depends_on.opensearch.condition = "process_healthy";
@@ -212,10 +198,17 @@
     };
 
   # install js dependencies in the project folder, start frontend process (run dev) in the matchmaker folder
-  tasks."matchmaker:npm-install" = {
+  # NOTE: this is already done when enter the devenv by `npm.enable = true;`
+  # This task is meant to be run after clean without leaving the session.
+  tasks."setup:npm" = {
     exec = "npm ci";
     cwd = ".";
-    before = [ "devenv:processes:matchmaker-frontend" ];
+  };
+
+  # symmetry clean up the npm
+  tasks."clean:npm" = {
+    exec = "rm -rf ./node_modules/";
+    cwd = ".";
   };
 
   processes.matchmaker-frontend =
@@ -228,7 +221,9 @@
       frontend_port = "5173";
     in
     {
-      exec = "VITE_BACKEND_API_URL=${backend_url} VITE_DEV_PORT=${frontend_port} npm run dev";
+      exec = ''
+        VITE_BACKEND_API_URL=${backend_url} VITE_DEV_PORT=${frontend_port} 
+        npm run dev'';
       cwd = "./matchmaker/";
       process-compose = {
         depends_on.data-commons-search.condition = "process_healthy";
@@ -257,7 +252,7 @@
     before = [ "devenv:processes:redis" ];
   };
 
-  tasks."app:cleanup:redis" = {
+  tasks."clean:redis" = {
     exec = ''
       echo "Redis server stopped, cleaning up..."
       rm -rf ./redis-data
@@ -272,23 +267,33 @@
   # --- postgres
   # TODO: and run transform script
   tasks = {
-    "app:psql:import" = {
+    "db-setup:psql:import" = {
       exec = "psql -U admin admin < dump.sql";
       status = "db-needs-import";
     };
   };
 
   # index opensearch
-  tasks."app:opensearch:creat_index" = {
-    exec = "uv run create_index.py";
-    cwd = "./scripts/opensearch_data/create_index.py";
+  tasks."db-setup:opensearch:create-index" = {
+    exec = "python create_index.py";
+    cwd = "./metadata-warehouse/scripts/opensearch_data/";
+    after = [ "db-setup:psql:import" ];
   };
 
-  # XXX: not ideal to use my local user name, should create a `postgres` user for this purpose.
-  tasks."app:psql:clean" = {
+  tasks."clean:psql" = {
     exec = ''
-      psql -U jyu -d postgres -c "DROP DATABASE admin;"
-      psql -U jyu -d postgres -c 'CREATE DATABASE admin OWNER admin;'
+      psql -U $USER -d postgres -c "DROP DATABASE admin;"
+      psql -U $USER -d postgres -c 'CREATE DATABASE admin OWNER admin;'
     '';
+  };
+
+  tasks."purge:all" = {
+    exec = ''
+      rm -rf ./.devenv/
+      rm -rf ./node_modules/
+      rm -rf ./redis-data/
+      rm -f ./requirements.txt
+    '';
+    cwd = ".";
   };
 }
