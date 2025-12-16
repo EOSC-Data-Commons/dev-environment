@@ -9,14 +9,16 @@ What you get by using this for development is:
 To start all services by just run
 
 ```console
-devenv shell
-devenv tasks run setup
 devenv up
 ```
 
 and can see the deployment by visiting http://localhost:5673/
 
+The only not provide in the repo is the LLM api keys which you need use yours, go [this section](#set-the-api-keys)
+
 You can then develop inside the submodules and see the effect immediately by restarting the service (through processes composer's TUI panel start along with running `devenv up` command).
+
+## Motivations
 
 Pros:
 
