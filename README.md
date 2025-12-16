@@ -84,7 +84,7 @@ access-tokens = github.com=<GITHUB_TOKEN>
 
 check [here](https://devenv.sh/getting-started/#3-configure-a-github-access-token-optional) for details.
 
-### Spin up services
+### Into the dev shell
 
 Clone the repo with all its submodules:
 
@@ -92,8 +92,49 @@ Clone the repo with all its submodules:
 git clone --recurse-submodules https://github.com/EOSC-Data-Commons/dev-environment.git
 ```
 
-You can then start all services by:
+You can then goes into the dev shell by:
 
 ```console
-devenv up
+devenv shell
 ```
+
+In this shell you have all data-commons-search, warehouse-transform-tools, matchmaker installed.
+The tools such as [`secretspec`](https://secretspec.dev/) is also provided inside the dev shell.
+
+### Set the API keys
+
+To run the LLM search sevice, the environment require `OPENROUTER_API_KEY` and `EINFRACZ_API_KEY`.
+To get an `OPENROUTER_API_KEY`, create an account and visit https://openrouter.ai/settings/keys 
+To get an `EINFRACZ_API_KEY`, register on chat.ai.e-infra.cz/ and contact Vincent Emonet (@vemonet).
+
+After you get the keys, set it through `secretspec`:
+
+Set up provider backendConfigure your preferred secrets storage backend:
+
+```console
+secretspec config init
+```
+
+Answer the prompt questions.
+When it is ready, set the keys.
+
+```console
+secretspec set EINFRACZ_API_KEY
+secretspec set OPENROUTER_API_KEY
+```
+
+### Spin up services
+
+The environment is setup, to start all services run:
+
+```console
+devenv run
+```
+
+It will start a TUI dashboard showing the status and logs of every services/processes.
+You'll see all needed services are running and can visit http://localhost:5173/ to the frontend.
+
+But when you search, you won't find any dataset because the database is empty.
+The next step will guide you to import data ready for search.
+
+### Import data for testing

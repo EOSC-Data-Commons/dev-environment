@@ -58,20 +58,73 @@
     pkgs.secretspec
   ];
 
-  # enterShell = ''
-  #   # install from uv.lock https://github.com/astral-sh/uv/issues/14568
-  #   uv export --frozen -o requirements.txt
-  #   uv pip install -r requirements.txt
-  #   uv pip install -e .
-  #   uv pip install -e "./data-commons-search[agent]"
-  # '';
+  # https://devenv.sh/services/
+  services.redis = {
+    enable = true;
+    extraConfig = ''
+      bind * -::*
+      protected-mode no
+      dir ./redis-data
+    '';
+  };
+
+  # install required python dependencies
+  # dependencies are managed by a `uv.lock` to conform with all submodules in python
+  tasks."python:install-dependencies" = {
+    exec = "uv export --frozen -o requirements.txt && uv pip install -r requirements.txt";
+    cwd = ".";
+  };
+
+  tasks."python:install-data-commons-search" = {
+    exec = "uv pip install -e ./data-commons-search/[agent]";
+    cwd = ".";
+    before = [
+      "devenv:processes:data-commons-search"
+    ];
+    after = [
+      "python:install-dependencies"
+    ];
+  };
+
+  tasks."python:install-metadata-warehouse" = {
+    exec = "uv pip install -e ./metadata-warehouse/";
+    cwd = ".";
+    # before = [
+    #   "devenv:processes:metadata-warehouse-tasks"
+    #   "devenv:processes:metadata-warehouse-transform-api"
+    # ];
+    after = [
+      "python:install-dependencies"
+    ];
+  };
+
+  # celery as task worker
+  processes.metadata-warehouse-tasks = {
+    # https://docs.celeryq.dev/en/latest/internals/reference/celery.concurrency.solo.html
+    # consider performance, `solo` is single thread pool, no async gain for performance.
+    exec = "celery -A tasks worker -E --pool=solo --loglevel=INFO";
+    cwd = "./metadata-warehouse/src";
+    process-compose = {
+      depends_on.redis.condition = "process_healthy";
+      readiness_probe = {
+        # this is ugly because metadata-warehouse did not properly manage the python package structure.
+        exec.command = ''
+          cd ./metadata-warehouse/src && celery -A tasks status && cd ../..
+        '';
+        initial_delay_seconds = 2;
+        period_seconds = 12;
+        timeout_seconds = 10;
+        success_threshold = 1;
+        failure_threshold = 5;
+      };
+    };
+  };
 
   # https://devenv.sh/processes/
-
   # transform restapi
-  processes.transform = {
+  processes.metadata-warehouse-transform-api = {
     exec = "fastapi run --host 127.0.0.1 transform.py --port 8080";
-    cwd = "./src";
+    cwd = "./metadata-warehouse/src";
     process-compose = {
       readiness_probe = {
         exec.command = ''
@@ -90,37 +143,6 @@
       };
     };
   };
-
-  # https://devenv.sh/services/
-  services.redis = {
-    enable = true;
-    extraConfig = ''
-      bind * -::*
-      protected-mode no
-      dir ./redis-data
-    '';
-  };
-
-  # # celery as task worker
-  # processes.celery = {
-  #   # https://docs.celeryq.dev/en/latest/internals/reference/celery.concurrency.solo.html
-  #   # consider performance, `solo` is single thread pool, no async gain for performance.
-  #   exec = "celery -A src.tasks worker -E --pool=solo --loglevel=INFO";
-  #   cwd = "./";
-  #   process-compose = {
-  #     depends_on.redis.condition = "process_healthy";
-  #     readiness_probe = {
-  #       exec.command = ''
-  #         celery -A src.tasks status
-  #       '';
-  #       initial_delay_seconds = 2;
-  #       period_seconds = 12;
-  #       timeout_seconds = 10;
-  #       success_threshold = 1;
-  #       failure_threshold = 5;
-  #     };
-  #   };
-  # };
 
   services.postgres = {
     enable = true;
@@ -149,33 +171,6 @@
       http.port = "9200";
       transport.port = "9300";
     };
-  };
-
-  # install required python dependencies
-  # dependencies are managed by a `uv.lock` to conform with all submodules in python
-  tasks."python:install-dependencies" = {
-    exec = "uv export --frozen -o requirements.txt && uv pip install --frozen -o requirements.txt";
-    cwd = ".";
-    # before = [
-    #   "devenv:tasks:python:install-data-commons-search"
-    #   "devenv:tasks:python:install-metadata-warehouse"
-    # ];
-  };
-
-  tasks."python:install-data-commons-search" = {
-    exec = "uv pip install -e ./data-commons-search/";
-    cwd = ".";
-    # before = [
-    #   "devenv:processes:data-commons-search"
-    # ];
-  };
-
-  tasks."python:install-metadata-warehouse" = {
-    exec = "uv pip install -e ./metadata-warehouse/";
-    cwd = ".";
-    # before = [
-    #   "devenv:processes:metadata-warehouse"
-    # ];
   };
 
   # data-commons-search service
