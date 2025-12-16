@@ -165,7 +165,7 @@
   env.OPENROUTER_API_KEY = config.secretspec.secrets.OPENROUTER_API_KEY;
   processes.data-commons-search =
     let
-      num_works = "6";
+      num_works = "2";
       host = "127.0.0.1";
       port = "8082";
       opensearch_url = "127.0.0.1:9200";
@@ -173,7 +173,9 @@
     in
     {
       exec = ''
-        DEFAULT_LLM_MODEL=${default_llm_model} SERVER_PORT=${port} OPENSEARCH_URL=${opensearch_url}
+        export DEFAULT_LLM_MODEL=${default_llm_model} 
+        export SERVER_PORT=${port}
+        export OPENSEARCH_URL=${opensearch_url}
         uvicorn data_commons_search.main:app --host ${host} --port ${port} --workers ${num_works} --log-config logging.yml
       '';
       cwd = "./data-commons-search/";
@@ -222,7 +224,8 @@
     in
     {
       exec = ''
-        VITE_BACKEND_API_URL=${backend_url} VITE_DEV_PORT=${frontend_port} 
+        export VITE_BACKEND_API_URL=${backend_url} 
+        export VITE_DEV_PORT=${frontend_port} 
         npm run dev'';
       cwd = "./matchmaker/";
       process-compose = {
