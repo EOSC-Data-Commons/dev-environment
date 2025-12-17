@@ -1,65 +1,66 @@
 # EOSC dev-environment
 
 The local development environment is built using [Nix](https://nixos.org/) and managed with [devenv](https://devenv.sh/).
-This setup is **not** intended to replace the `docker-compose` recipes provided in each sub-repository. 
-Instead, it offers a **monolithic development environment** that integrates all components into a single, unified workflow.
+This setup is **not** intended to replace the `docker-compose` recipes provided with each sub-repository. 
+Instead, this offers a **monolithic development environment** that integrates all components into a single, unified workflow.
 
-What you get by using this for development is:
-
-To start all services by just run
+What you get by using this for development is: starting all services by just run
 
 ```console
 devenv up
 ```
 
-and can see the deployment by visiting http://localhost:5173/
+and can immediately see the deployment by visiting http://localhost:5173/
 
-The only not provide in the repo is the LLM api keys which you need use yours, go [this section](#set-the-api-keys)
+The only not include in the automatic deploy flow is the LLM api keys, you need your own. 
+See [this section](#set-the-api-keys) for instructions.
 
-You can then develop inside the submodules and see the effect immediately by restarting the service (through processes composer's TUI panel start along with running `devenv up` command).
+Once configured, you can develop directly within the submodules and see changes take effect immediately by starting the service via running `devenv up`.
 
 ## TL;DR
 
-- Step0:
-
-Clone repo:
+#### Step0: Clone repo
 
 ```console
 git clone --recurse-submodules https://github.com/EOSC-Data-Commons/dev-environment.git
 ```
 
-- Step1:
+don't forget `--recurse-submodules` to get the submodules of components
 
-Get API keys, and fill it in file `.env.development`.
+#### Step1: Get API keys, and fill it in file `.env.development`
 
 ```
 EINFRACZ_API_KEY=<your_key>
 OPENROUTER_API_KEY=<your_key>
 ```
 
-Note, don't put `"` around the key.
+don't put `"` around the key.
 
-- Step2:
+#### Step2: Start all sevices 
 
-Start all sevices by:
+Run
 
 ```console
 devenv up -v
 ```
 
-It takes a while for the command to finish.
-Once the packages are built and cached, starting the development environment will be lightning fast in the future.
+It takes a while for the command to finish, once the packages are built and cached, starting the development environment will be lightning fast in the future.
 
-- Step3:
+#### Step3: visit http://localhost:5173 and search
 
-You can visit http://localhost:5173 and search, but didn't get any results because data is not there.
-Import data by:
+You didn't get any results because data is not there yet.
+
+Download the data file (`dump.sql.zip`) from the [releases page](https://github.com/EOSC-Data-Commons/dev-environment/releases/).
+Unzip it and place the resulting `dump.sql` file in the repository root.
+
+Import the data with:
 
 ```console
 devenv tasks run db-import
 ```
 
-visit http://localhost:5173 again and can search (try "onedata") through AI based searching services.
+After the import completes, visit [http://localhost:5173](http://localhost:5173) again. 
+You should now be able to search the data using the AI-powered search (try search "onedata").
 
 ## Motivations
 
@@ -111,8 +112,10 @@ Be careful with this approach where the caching is lost after container stopped.
 docker run -it nixos/nix
 ```
 
-Since the repo is private, need to setup github account in container.
+Since the repo is private , need to setup github account in container.
 It is fairly easy to do it in nixos container:
+
+Note: (because `metadata-warehouse` submodule is in private repo, the following gh auth is not needed when the repo become public)
 
 ```console
 nix-shell -p gh git vim
@@ -184,7 +187,10 @@ The next step will guide you to import data ready for search.
 We need database include the havested data and indexing for opensearch.
 The database was already havested and can be requst from Tobias Schweizer (@tobiasschweizer).
 
-Store the file named as `dump.sql` and run (make sure the services are all running healthy):
+Download the data file (`dump.sql.zip`) from the [releases page](https://github.com/EOSC-Data-Commons/dev-environment/releases/).
+Unzip it and place the resulting `dump.sql` file in the repository root.
+
+Import the data with:
 
 ```console
 devenv tasks run db-import
