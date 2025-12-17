@@ -256,28 +256,28 @@
     after = [ "devenv:processes:redis" ];
   };
 
-  # NOTE: the lift-cycle of full example data creating and clear is:
+  # NOTE: the lift-cycle of manually full example data creating and clear is:
   # 1. create db "admin" -> import db entries from dump.sql -> create opensearch indexing ->
   # -> indexing to db (in production this runs async in another thread) -> delete db "admin" -> back to '1'
 
   # --- postgres
-  tasks."db:import" = {
+  tasks."db-import:dump" = {
     exec = "psql -U admin admin < dump.sql";
-    status = "db-needs-import";
-    before = [ "db:create-index" ];
+    status = "db-needs-dump";
+    before = [ "db-import:create-index" ];
   };
 
   # index opensearch
-  tasks."db:create-index" = {
+  tasks."db-import:create-index" = {
     exec = "python create_index.py";
     cwd = "./metadata-warehouse/scripts/opensearch_data/";
-    before = [ "db:indexing" ];
+    before = [ "db-import:indexing" ];
   };
 
-  tasks."db:indexing" = {
+  tasks."db-import:indexing" = {
     exec = ''
       python repo-index.py indexing https://demo.onedata.org/oai_pmh
-      python repo-index.py indexing https://ssh.datastations.nl/oai
+      # python repo-index.py indexing https://ssh.datastations.nl/oai
       # python repo-index.py indexing https://www.swissubase.ch/oai-pmh/v1/oai
       # python repo-index.py indexing https://lifesciences.datastations.nl/oai
       # python repo-index.py indexing https://dataverse.nl/oai

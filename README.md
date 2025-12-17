@@ -12,11 +12,54 @@ To start all services by just run
 devenv up
 ```
 
-and can see the deployment by visiting http://localhost:5673/
+and can see the deployment by visiting http://localhost:5173/
 
 The only not provide in the repo is the LLM api keys which you need use yours, go [this section](#set-the-api-keys)
 
 You can then develop inside the submodules and see the effect immediately by restarting the service (through processes composer's TUI panel start along with running `devenv up` command).
+
+## TL;DR
+
+- Step0:
+
+Clone repo:
+
+```console
+git clone --recurse-submodules https://github.com/EOSC-Data-Commons/dev-environment.git
+```
+
+- Step1:
+
+Get API keys, and fill it in file `.env.development`.
+
+```
+EINFRACZ_API_KEY=<your_key>
+OPENROUTER_API_KEY=<your_key>
+```
+
+Note, don't put `"` around the key.
+
+- Step2:
+
+Start all sevices by:
+
+```console
+devenv up -v
+```
+
+It takes a while for the command to finish.
+Once the packages are built and cached, starting the development environment will be lightning fast in the future.
+
+- Step3:
+
+You can visit http://localhost:5173 and search, but didn't get any results because data is not there.
+Import data by:
+
+```console
+devenv tasks run db-import
+```
+
+visit http://localhost:5173 again and can search (try "onedata") through AI based searching services.
 
 ## Motivations
 
@@ -62,9 +105,21 @@ curl -L https://github.com/NixOS/experimental-nix-installer/releases/download/0.
 
 - Docker 
 
+Be careful with this approach where the caching is lost after container stopped.
+
 ```console
 docker run -it nixos/nix
 ```
+
+Since the repo is private, need to setup github account in container.
+It is fairly easy to do it in nixos container:
+
+```console
+nix-shell -p gh git vim
+gh auth login
+```
+
+When ready, can clone the repo.
 
 For more details if you get stucked, check [here](https://devenv.sh/getting-started/#1-install-nix)
 
@@ -96,14 +151,8 @@ Clone the repo with all its submodules:
 git clone --recurse-submodules https://github.com/EOSC-Data-Commons/dev-environment.git
 ```
 
-You can then goes into the dev shell and setup environment by:
-
-```console
-devenv tasks run setup
-```
-
-In this shell you have all data-commons-search, warehouse-transform-tools, matchmaker installed.
-The tools such as [`secretspec`](https://secretspec.dev/) is also provided inside the dev shell.
+It is important to clean with submodules.
+If you already cloned the project and forgot `--recurse-submodules`, you can use the foolproof `git submodule update --init --recursive`.
 
 ### Set the API keys
 
@@ -111,30 +160,18 @@ To run the LLM search sevice, the environment require `OPENROUTER_API_KEY` and `
 To get an `OPENROUTER_API_KEY`, create an account and visit https://openrouter.ai/settings/keys 
 To get an `EINFRACZ_API_KEY`, register on chat.ai.e-infra.cz/ and contact Vincent Emonet (@vemonet).
 
-After you get the keys, set it through `secretspec`:
-
-Set up provider backend, configure your backend using "keyring":
-(TODO: check in container, is the keyring package being provided in system.)
-
-```console
-secretspec config init
-```
-
-Answer the prompt questions.
-When it is ready, set the keys.
-
-```console
-secretspec set EINFRACZ_API_KEY
-secretspec set OPENROUTER_API_KEY
-```
+After you get the keys, set them in `.env.development`.
 
 ### Spin up services
 
-The environment is setup, to start all services run:
+The environment is setup, to start all services run 
 
 ```console
-devenv run
+devenv run -v
 ```
+
+The first time it takes a while to install all package dependencies, all dependencies are cached and after it will be much faster.
+(be careful if using docker with nixos/nix image, when exit from container, the caching is lost.)
 
 It will start a TUI dashboard showing the status and logs of every services/processes.
 You'll see all needed services are running and can visit http://localhost:5173/ to the frontend.
@@ -150,30 +187,19 @@ The database was already havested and can be requst from Tobias Schweizer (@tobi
 Store the file named as `dump.sql` and run (make sure the services are all running healthy):
 
 ```console
-devenv tasks run db:import
+devenv tasks run db-import
 ```
 
-This import task takes a while to finish it import the dump, and create indexing for a small data repository. 
-
-To indexing other data repository first check what repositories exist by calling:
-
-To indexing all data repositories, run:
+This import task takes about 30s to finish it import the dump, and create indexing for a small data repository. 
 
 ```console
-devenv tasks run db:indexing
+python repo-index.py list
 ```
 
-Or to save time and for test purpose, you can indexing for certain data repo.
-First get the available data repo urls:
+to get all available data repositories and then to indexing run:
 
 ```console
-curl -X GET http://localhost:8080/config |jq -r '.endpoints_configs[].harvest_url'
-```
-
-inside devenv shell (first run `devenv shell` if from your own shell), run with passing a repo url:
-
-```console
-python repo-index.py <repo-url>
+python repo-index.py indexing <repo-url>
 ```
 
 Fill `<repo-url>` with a repo url.
@@ -187,7 +213,7 @@ The postgresql service need keep on running to clean up the database.
 To clean imported data, run:
 
 ```console
-devenv tasks run clean:psql
+devenv tasks run clean:db
 ```
 
 You can then import from dump and indexing for opensearch.

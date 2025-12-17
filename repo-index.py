@@ -6,6 +6,7 @@ from urllib.parse import quote
 BASE = "http://127.0.0.1:8080"
 DEFAULT_INDEX_NAME = "test_datacite"
 
+
 def get_all_harvest_urls(print_urls: bool = False):
     """
     Fetch all harvest URLs from /config.
@@ -65,7 +66,7 @@ def index_harvest(url: str, index_name: str | None = None):
     else:
         params["index_name"] = DEFAULT_INDEX_NAME
 
-    r2 = httpx.get(f"{BASE}/index", params=params)
+    r2 = httpx.get(f"{BASE}/index", params=params, timeout=None)
     r2.raise_for_status()
     index_response = r2.json()
     print(f"Indexing response: {index_response}")
