@@ -20,3 +20,6 @@ requirements.txt
 
 # node modules
 node_modules/
+
+# .env
+.env.development

@@ -7,6 +7,13 @@
 }:
 
 {
+  dotenv.enable = true;
+  dotenv.filename = [ ".env.development" ];
+
+  # devenv recommond to use secretspec, which not enabled here for simplicity.
+  # env.EINFRACZ_API_KEY = config.secretspec.secrets.EINFRACZ_API_KEY;
+  # env.OPENROUTER_API_KEY = config.secretspec.secrets.OPENROUTER_API_KEY;
+
   # https://qdrant.github.io/fastembed/examples/Supported_Models/
   env.EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5";
   # depends on EMBEDDING_MODEL
@@ -57,7 +64,6 @@
     pkgs.nodejs-slim_24
     pkgs.nodePackages.typescript-language-server
     pkgs.nodePackages.prettier
-    pkgs.secretspec
   ];
 
   # https://devenv.sh/services/
@@ -70,20 +76,9 @@
     '';
   };
 
-  tasks."setup:python:data-commons-search" = {
-    exec = "uv pip install -e ./data-commons-search[agent]";
-    cwd = ".";
-  };
-
-  tasks."setup:python:metadata-warehouse" = {
-    exec = "uv pip install -e ./metadata-warehouse/";
-    cwd = ".";
-  };
-
   tasks."clean:python" = {
     exec = ''
       rm -rf ./.devenv/state/venv/
-      rm -f ./requirements.txt
     '';
     cwd = ".";
   };
@@ -102,10 +97,10 @@
           cd ./metadata-warehouse/src && celery -A tasks status && cd ../..
         '';
         initial_delay_seconds = 2;
-        period_seconds = 12;
-        timeout_seconds = 10;
+        period_seconds = 60;
+        timeout_seconds = 100;
         success_threshold = 1;
-        failure_threshold = 5;
+        failure_threshold = 20;
       };
     };
   };
@@ -161,8 +156,6 @@
 
   # data-commons-search service
   # need by data-commons-search
-  env.EINFRACZ_API_KEY = config.secretspec.secrets.EINFRACZ_API_KEY;
-  env.OPENROUTER_API_KEY = config.secretspec.secrets.OPENROUTER_API_KEY;
   processes.data-commons-search =
     let
       num_works = "2";
@@ -268,28 +261,34 @@
   # -> indexing to db (in production this runs async in another thread) -> delete db "admin" -> back to '1'
 
   # --- postgres
-  # TODO: and run transform script
-  tasks = {
-    "db:import" = {
-      exec = "psql -U admin admin < dump.sql";
-      status = "db-needs-import";
-    };
+  tasks."db:import" = {
+    exec = "psql -U admin admin < dump.sql";
+    status = "db-needs-import";
+    before = [ "db:create-index" ];
   };
 
   # index opensearch
-  tasks."db:opensearch:create-index" = {
+  tasks."db:create-index" = {
     exec = "python create_index.py";
     cwd = "./metadata-warehouse/scripts/opensearch_data/";
-    after = [ "db:import" ];
+    before = [ "db:indexing" ];
   };
 
   tasks."db:indexing" = {
     exec = ''
-      printf "hello world\n"
+      python repo-index.py indexing https://demo.onedata.org/oai_pmh
+      python repo-index.py indexing https://ssh.datastations.nl/oai
+      # python repo-index.py indexing https://www.swissubase.ch/oai-pmh/v1/oai
+      # python repo-index.py indexing https://lifesciences.datastations.nl/oai
+      # python repo-index.py indexing https://dataverse.nl/oai
+      # python repo-index.py indexing https://api.archives-ouvertes.fr/oai/hal
+      # python repo-index.py indexing https://dabar.srce.hr/oai/
+      # python repo-index.py indexing https://archaeology.datastations.nl/oai
+      # python repo-index.py indexing https://phys-techsciences.datastations.nl/oai
     '';
   };
 
-  tasks."clean:psql" = {
+  tasks."clean:db" = {
     exec = ''
       psql -U $USER -d postgres -c "DROP DATABASE admin;"
       psql -U $USER -d postgres -c 'CREATE DATABASE admin OWNER admin;'

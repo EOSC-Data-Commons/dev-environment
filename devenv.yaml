@@ -1,7 +1,3 @@
-secretspec:
-  enable: true
-  provider: keyring
-  profile: development
 inputs:
   nixpkgs:
     url: github:cachix/devenv-nixpkgs/rolling
@@ -10,3 +6,7 @@ inputs:
     inputs:
       nixpkgs:
         follows: nixpkgs
+# secretspec:
+#   enable: true
+#   provider: keyring
+#   profile: development
