@@ -210,6 +210,10 @@ python repo-index.py indexing <repo-url>
 
 Fill `<repo-url>` with a repo url.
 
+Here is a summary of the number of entries in each data repository: [1]
+
+[1] https://confluence.egi.eu/display/EOSCDATACOMMONS/2025-11-21+Work+Group+1+Update
+
 ### Clean up and reset
 
 #### Cleanup and re-import the database

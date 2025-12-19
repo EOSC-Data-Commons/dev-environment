@@ -274,17 +274,18 @@
     before = [ "db-import:indexing" ];
   };
 
+  # import three small data repos
   tasks."db-import:indexing" = {
     exec = ''
       python repo-index.py indexing https://demo.onedata.org/oai_pmh
+      python repo-index.py indexing https://dabar.srce.hr/oai/
+      python repo-index.py indexing https://phys-techsciences.datastations.nl/oai
       # python repo-index.py indexing https://ssh.datastations.nl/oai
       # python repo-index.py indexing https://www.swissubase.ch/oai-pmh/v1/oai
       # python repo-index.py indexing https://lifesciences.datastations.nl/oai
       # python repo-index.py indexing https://dataverse.nl/oai
       # python repo-index.py indexing https://api.archives-ouvertes.fr/oai/hal
-      # python repo-index.py indexing https://dabar.srce.hr/oai/
       # python repo-index.py indexing https://archaeology.datastations.nl/oai
-      # python repo-index.py indexing https://phys-techsciences.datastations.nl/oai
     '';
   };
 
