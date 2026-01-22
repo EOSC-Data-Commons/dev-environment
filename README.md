@@ -112,18 +112,6 @@ Be careful with this approach where the caching is lost after container stopped.
 docker run -it nixos/nix
 ```
 
-Since the repo is private , need to setup github account in container.
-It is fairly easy to do it in nixos container:
-
-Note: (because `metadata-warehouse` submodule is in private repo, the following gh auth is not needed when the repo become public)
-
-```console
-nix-shell -p gh git vim
-gh auth login
-```
-
-When ready, can clone the repo.
-
 For more details if you get stucked, check [here](https://devenv.sh/getting-started/#1-install-nix)
 
 #### Install devenv
