@@ -53,7 +53,7 @@ def index_harvest(url: str, index_name: str | None = None):
         headers={"accept": "application/json"},
     )
     r.raise_for_status()
-    data = r.json()
+    data = r.json()['harvest_runs'][0]
 
     harvest_run_id = data.get("id")
     if not harvest_run_id:

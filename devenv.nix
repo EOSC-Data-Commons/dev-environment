@@ -19,13 +19,6 @@
   # depends on EMBEDDING_MODEL
   env.EMBEDDING_DIMS = 384;
 
-  # see postgres service below
-  env.POSTGRES_ADMIN = "admin";
-  env.POSTGRES_USER = "admin";
-  env.POSTGRES_PASSWORD = "test";
-  env.POSTGRES_ADDRESS = "127.0.0.1";
-  env.POSTGRES_PORT = "5432";
-
   env.OPENSEARCH_ADDRESS = "127.0.0.1";
   env.OPENSEARCH_PORT = "9200";
   env.INDEX_NAME = "test_datacite";
@@ -84,50 +77,84 @@
   };
 
   # celery as task worker
-  processes.metadata-warehouse-tasks = {
-    # https://docs.celeryq.dev/en/latest/internals/reference/celery.concurrency.solo.html
-    # consider performance, `solo` is single thread pool, no async gain for performance.
-    exec = "celery -A tasks worker -E --pool=solo --loglevel=INFO";
-    cwd = "./metadata-warehouse/src";
-    process-compose = {
-      depends_on.redis.condition = "process_healthy";
-      readiness_probe = {
-        # this is ugly because metadata-warehouse did not properly manage the python package structure.
-        exec.command = ''
-          cd ./metadata-warehouse/src && celery -A tasks status && cd ../..
-        '';
-        initial_delay_seconds = 2;
-        period_seconds = 60;
-        timeout_seconds = 100;
-        success_threshold = 1;
-        failure_threshold = 20;
+  processes.metadata-warehouse-tasks =
+    let
+      postgres_admin = "admin";
+      postgres_user = "admin";
+      postgres_password = "test";
+      postgres_address = "127.0.0.1";
+      postgres_port = "5432";
+      postgres_db = "dataset";
+    in
+    {
+      # https://docs.celeryq.dev/en/latest/internals/reference/celery.concurrency.solo.html
+      # consider performance, `solo` is single thread pool, no async gain for performance.
+      exec = ''
+        export POSTGRES_ADMIN=${postgres_admin}
+        export POSTGRES_USER=${postgres_user}
+        export POSTGRES_PASSWORD=${postgres_password}
+        export POSTGRES_ADDRESS=${postgres_address}
+        export POSTGRES_PORT=${postgres_port}
+        export POSTGRES_DB=${postgres_db}
+        celery -A tasks worker -E --pool=solo --loglevel=INFO
+      '';
+      cwd = "./metadata-warehouse/src";
+      process-compose = {
+        depends_on.redis.condition = "process_healthy";
+        readiness_probe = {
+          # this is ugly because metadata-warehouse did not properly manage the python package structure.
+          exec.command = ''
+            cd ./metadata-warehouse/src && celery -A tasks status && cd ../..
+          '';
+          initial_delay_seconds = 2;
+          period_seconds = 60;
+          timeout_seconds = 100;
+          success_threshold = 1;
+          failure_threshold = 20;
+        };
       };
     };
-  };
 
   # https://devenv.sh/processes/
   # transform restapi
-  processes.metadata-warehouse-transform-api = {
-    exec = "fastapi run --host 127.0.0.1 transform.py --port 8080";
-    cwd = "./metadata-warehouse/src";
-    process-compose = {
-      readiness_probe = {
-        exec.command = ''
-          if curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/health | grep -q 200; then
-            exit 0
-          else
-            echo "API not ready yet..." 2>&1
-            exit 1
-          fi
-        '';
-        initial_delay_seconds = 2;
-        period_seconds = 10;
-        timeout_seconds = 4;
-        success_threshold = 1;
-        failure_threshold = 5;
+  processes.metadata-warehouse-transform-api =
+    let
+      postgres_admin = "admin";
+      postgres_user = "admin";
+      postgres_password = "test";
+      postgres_address = "127.0.0.1";
+      postgres_port = "5432";
+      postgres_db = "dataset";
+    in
+    {
+      exec = ''
+        export POSTGRES_ADMIN=${postgres_admin}
+        export POSTGRES_USER=${postgres_user}
+        export POSTGRES_PASSWORD=${postgres_password}
+        export POSTGRES_ADDRESS=${postgres_address}
+        export POSTGRES_PORT=${postgres_port}
+        export POSTGRES_DB=${postgres_db}
+        fastapi run --host 127.0.0.1 transform.py --port 8080
+      '';
+      cwd = "./metadata-warehouse/src";
+      process-compose = {
+        readiness_probe = {
+          exec.command = ''
+            if curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/health | grep -q 200; then
+              exit 0
+            else
+              echo "API not ready yet..." 2>&1
+              exit 1
+            fi
+          '';
+          initial_delay_seconds = 2;
+          period_seconds = 10;
+          timeout_seconds = 4;
+          success_threshold = 1;
+          failure_threshold = 5;
+        };
       };
     };
-  };
 
   services.postgres = {
     enable = true;
@@ -136,7 +163,7 @@
     port = 5432;
     initialDatabases = [
       {
-        name = "admin";
+        name = "dataset";
         user = "admin";
         pass = "test";
       }
@@ -209,7 +236,8 @@
   processes.matchmaker-frontend =
     let
       # must include 'http' since the value is used for vite proxy.
-      backend_url = "http://127.0.0.1:8082";
+      search_api_url = "http://127.0.0.1:8082";
+      player_api_url = "https://dev1.player.eosc-data-commons.eu";
 
       # NOTE: don't change
       # the dev port is hardcoded in the matchmaker at vite config. I won't bother to make it customizable.
@@ -217,9 +245,10 @@
     in
     {
       exec = ''
-        export VITE_BACKEND_API_URL=${backend_url} 
-        export VITE_DEV_PORT=${frontend_port} 
-        npm run dev'';
+        export SEARCH_API_URL=${search_api_url} 
+        export PLAYER_API_URL=${player_api_url} 
+        export PORT=${frontend_port} 
+        tsx server.ts'';
       cwd = "./matchmaker/";
       process-compose = {
         depends_on.data-commons-search.condition = "process_healthy";
@@ -262,7 +291,7 @@
 
   # --- postgres
   tasks."db-import:dump" = {
-    exec = "psql -U admin admin < dump.sql";
+    exec = "psql -U admin dataset < dump.sql";
     status = "db-needs-dump";
     before = [ "db-import:create-index" ];
   };
@@ -291,8 +320,8 @@
 
   tasks."clean:db" = {
     exec = ''
-      psql -U $USER -d postgres -c "DROP DATABASE admin;"
-      psql -U $USER -d postgres -c 'CREATE DATABASE admin OWNER admin;'
+      psql -U $USER -d postgres -c "DROP DATABASE dataset;"
+      psql -U $USER -d postgres -c 'CREATE DATABASE dataset OWNER admin;'
     '';
   };
 
