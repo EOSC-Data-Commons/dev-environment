@@ -27,7 +27,17 @@
   env.CELERY_RESULT_BACKEND = "redis://127.0.0.1:6379/0";
   env.CELERY_BATCH_SIZE = 250;
 
-  # https://devenv.sh/languages/
+  packages = [
+    pkgs.nodejs-slim_24
+    pkgs.nodePackages.typescript-language-server
+    pkgs.nodePackages.prettier
+    pkgs.cargo-dist
+    pkgs.grpc-health-probe
+    pkgs.openssl # need by coordinator
+  ];
+
+  languages.rust.enable = true;
+
   languages.python = {
     enable = true;
     version = "3.12.12";
@@ -52,13 +62,6 @@
     };
     typescript.enable = true;
   };
-
-  packages = [
-    pkgs.nodejs-slim_24
-    pkgs.nodePackages.typescript-language-server
-    pkgs.nodePackages.prettier
-  ];
-
   # https://devenv.sh/services/
   services.redis = {
     enable = true;
@@ -233,7 +236,35 @@
     cwd = ".";
   };
 
-  processes.matchmaker-frontend =
+  processes.coordinator = {
+    exec = ''cargo run --bin rp-real'';
+    cwd = "./matchmaker/req-packager/";
+    process-compose = {
+      readiness_probe = {
+        exec.command = ''
+          # `grpc-health-probe -addr=[::1]:50051 -service=coordinator.v1.DataplayerService`
+          # command probe for a service, but here I assume when coordinator running all services are good.
+          # in the production deployment, I should probe every sub services and give extensive log.
+          OUTPUT=$(grpc-health-probe -addr=[::1]:50051 2>&1)
+          
+          if echo "$OUTPUT" | grep -q SERVING; then
+            exit 0
+          else
+            echo "Frontend not ready yet" >&2
+            echo "$OUTPUT" >&2
+            exit 1
+          fi
+        '';
+        initial_delay_seconds = 2;
+        period_seconds = 10;
+        timeout_seconds = 4;
+        success_threshold = 1;
+        failure_threshold = 5;
+      };
+    };
+  };
+
+  processes.matchmaker =
     let
       # must include 'http' since the value is used for vite proxy.
       search_api_url = "http://127.0.0.1:8082";
@@ -252,6 +283,7 @@
       cwd = "./matchmaker/";
       process-compose = {
         depends_on.data-commons-search.condition = "process_healthy";
+        depends_on.coordinator.condition = "process_healthy";
         readiness_probe = {
           exec.command = ''
             if curl -s -o /dev/null -w "%{http_code}" http://localhost:${frontend_port}/ | grep -q 200; then
