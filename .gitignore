@@ -13,7 +13,8 @@ devenv.local.yaml
 redis-data/
 
 # sample psql database dump
-dump.sql
+*.sql
+*.zip
 
 # requirements.txt is generated from frozen uv.lock
 requirements.txt

@@ -9,6 +9,7 @@
 {
   dotenv.enable = true;
   dotenv.filename = [ ".env.development" ];
+  process.manager.implementation = "process-compose";
 
   # devenv recommond to use secretspec, which not enabled here for simplicity.
   # env.EINFRACZ_API_KEY = config.secretspec.secrets.EINFRACZ_API_KEY;
@@ -29,8 +30,8 @@
 
   packages = [
     pkgs.nodejs-slim_24
-    pkgs.nodePackages.typescript-language-server
-    pkgs.nodePackages.prettier
+    pkgs.typescript-language-server
+    pkgs.prettier
     pkgs.cargo-dist
     pkgs.grpc-health-probe
     pkgs.openssl # need by coordinator
@@ -53,7 +54,7 @@
     };
   };
 
-  enterShell = '''';
+  enterShell = "";
 
   languages = {
     javascript = {
@@ -173,16 +174,24 @@
     ];
   };
 
-  services.opensearch = {
-    enable = true;
-    settings = {
-      cluster.name = "opensearch";
-      discovery.type = "single-node";
-      network.host = "127.0.0.1";
-      http.port = "9200";
-      transport.port = "9300";
+  services.opensearch =
+    let
+      # need this for opensearch==2.19.0, others all has api problem.
+      oldPkgs = import (fetchTarball {
+        url = "https://github.com/NixOS/nixpkgs/archive/nixos-25.11.tar.gz";
+      }) { };
+    in
+    {
+      enable = true;
+      package = oldPkgs.opensearch;
+      settings = {
+        cluster.name = "opensearch";
+        discovery.type = "single-node";
+        network.host = "127.0.0.1";
+        http.port = "9200";
+        transport.port = "9300";
+      };
     };
-  };
 
   # data-commons-search service
   # need by data-commons-search
@@ -232,12 +241,14 @@
 
   # symmetry clean up the npm
   tasks."clean:npm" = {
-    exec = "rm -rf ./node_modules/";
+    exec = ''
+      rm -rf ./node_modules/
+    '';
     cwd = ".";
   };
 
   processes.coordinator = {
-    exec = ''cargo run --bin rp-real'';
+    exec = "cargo run --bin rp-real";
     cwd = "./matchmaker/req-packager/";
     process-compose = {
       readiness_probe = {
@@ -246,7 +257,7 @@
           # command probe for a service, but here I assume when coordinator running all services are good.
           # in the production deployment, I should probe every sub services and give extensive log.
           OUTPUT=$(grpc-health-probe -addr=[::1]:50051 2>&1)
-          
+
           if echo "$OUTPUT" | grep -q SERVING; then
             exit 0
           else
@@ -322,33 +333,57 @@
   # -> indexing to db (in production this runs async in another thread) -> delete db "admin" -> back to '1'
 
   # --- postgres
-  tasks."db-import:dump" = {
-    exec = "psql -U admin dataset < dump.sql";
-    status = "db-needs-dump";
+  tasks."db-import:dump-datasetdb" = {
+    exec = "psql -U admin dataset < datasetdb_dump_2026_04_10.sql";
+    status = "datasetdb-needs-dump";
+    # before = [ "db-import:dump-transform-index" ];
     before = [ "db-import:create-index" ];
   };
 
-  # index opensearch
-  tasks."db-import:create-index" = {
-    exec = "python create_index.py";
-    cwd = "./metadata-warehouse/scripts/opensearch_data/";
-    before = [ "db-import:indexing" ];
+  tasks."db-import:dump-transform-index" = {
+    exec = "psql -U admin dataset < datasetdb_dump_with_transform_2026_04_10.sql";
+    status = "transform-db-needs-dump";
+    before = [ "db-import:create-index" ];
   };
+  #
+  # tasks."db-import:dump-filedb" = {
+  #   exec = "psql -U admin dataset < filedb_dump_2026_04_10.sql";
+  #   status = "filedb-needs-dump";
+  #   # before = [ "db-import:create-index" ];
+  # };
+
+  # index opensearch
+  tasks."db-import:create-index" =
+    let
+      venvPython = "$DEVENV_ROOT/.devenv/state/venv/bin/python";
+    in
+    {
+      exec = ''
+        ${venvPython} create_index.py
+      '';
+      # exec = ''python -c "import site; print(site.getsitepackages())"'';
+      cwd = "./metadata-warehouse/scripts/opensearch_data/";
+      before = [ "db-import:indexing" ];
+    };
 
   # import three small data repos
-  tasks."db-import:indexing" = {
-    exec = ''
-      python repo-index.py indexing https://demo.onedata.org/oai_pmh
-      python repo-index.py indexing https://dabar.srce.hr/oai/
-      python repo-index.py indexing https://phys-techsciences.datastations.nl/oai
-      # python repo-index.py indexing https://ssh.datastations.nl/oai
-      # python repo-index.py indexing https://www.swissubase.ch/oai-pmh/v1/oai
-      # python repo-index.py indexing https://lifesciences.datastations.nl/oai
-      # python repo-index.py indexing https://dataverse.nl/oai
-      # python repo-index.py indexing https://api.archives-ouvertes.fr/oai/hal
-      # python repo-index.py indexing https://archaeology.datastations.nl/oai
-    '';
-  };
+  tasks."db-import:indexing" =
+    let
+      venvPython = "$DEVENV_ROOT/.devenv/state/venv/bin/python";
+    in
+    {
+      exec = ''
+        ${venvPython} repo-index.py indexing https://api.archives-ouvertes.fr/oai/hal
+        ${venvPython} repo-index.py indexing https://phys-techsciences.datastations.nl/oai
+        ${venvPython} repo-index.py indexing https://archaeology.datastations.nl/oai
+        # ${venvPython} repo-index.py indexing https://dabar.srce.hr/oai/
+        # ${venvPython} repo-index.py indexing https://ssh.datastations.nl/oai
+        # ${venvPython} repo-index.py indexing https://www.swissubase.ch/oai-pmh/v1/oai
+        # ${venvPython} repo-index.py indexing https://lifesciences.datastations.nl/oai
+        # ${venvPython} repo-index.py indexing https://dataverse.nl/oai
+        # ${venvPython} repo-index.py indexing https://demo.onedata.org/oai_pmh
+      '';
+    };
 
   tasks."clean:db" = {
     exec = ''
