@@ -7,7 +7,7 @@ Instead, this offers a **monolithic development environment** that integrates al
 What you get by using this for development is: starting all services by just run
 
 ```console
-devenv up
+devenv up -v
 ```
 
 and can immediately see the deployment by visiting http://localhost:5173/
@@ -32,6 +32,9 @@ don't forget `--recurse-submodules` to get the submodules of components
 ```
 EINFRACZ_API_KEY=<your_key>
 OPENROUTER_API_KEY=<your_key>
+GITHUB_TOKEN=<your_pat_key>
+VIP_API_KEY=<your_key>
+OIDC_AGENT_TOKEN=<your_egi_oidc_token_get_using_oidc_agent>
 ```
 
 don't put `"` around the key.
