@@ -64,14 +64,22 @@
     typescript.enable = true;
   };
   # https://devenv.sh/services/
-  services.redis = {
-    enable = true;
-    extraConfig = ''
-      bind * -::*
-      protected-mode no
-      dir ./redis-data
-    '';
-  };
+  services.redis =
+    let
+      # need this for opensearch==2.19.0, others all has api problem.
+      oldPkgs = import (fetchTarball {
+        url = "https://github.com/NixOS/nixpkgs/archive/nixos-25.11.tar.gz";
+      }) { };
+    in
+    {
+      package = oldPkgs.redis;
+      enable = true;
+      extraConfig = ''
+        bind * -::*
+        protected-mode no
+        dir ./redis-data
+      '';
+    };
 
   tasks."clean:python" = {
     exec = ''
