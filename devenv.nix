@@ -146,7 +146,7 @@
         export POSTGRES_ADDRESS=${postgres_address}
         export POSTGRES_PORT=${postgres_port}
         export POSTGRES_DB=${postgres_db}
-        fastapi run --host 127.0.0.1 transform.py --port 8080
+        uvicorn transform:app --host 127.0.0.1 --port 8080
       '';
       cwd = "./metadata-warehouse/src";
       process-compose = {
