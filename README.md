@@ -37,7 +37,7 @@ VIP_API_KEY=<your_key>
 OIDC_AGENT_TOKEN=<your_egi_oidc_token_get_using_oidc_agent>
 ```
 
-don't put `"` around the key.
+don't put `"` around the value.
 
 #### Step2: Start all sevices 
 
@@ -53,8 +53,9 @@ It takes a while for the command to finish, once the packages are built and cach
 
 You didn't get any results because data is not there yet.
 
-Download the data file (`dump.sql.zip`) from the [releases page](https://github.com/EOSC-Data-Commons/dev-environment/releases/).
-Unzip it and place the resulting `dump.sql` file in the repository root.
+Download the data file (`*.sql.zip`) from the [releases page](https://github.com/EOSC-Data-Commons/dev-environment/releases/tag/26.06.0).
+It contains two database dumps (`datasetdb_and_filedb_dump_2026_04_10.zip` and `datasetdb_dump_with_transform_2026_04_10.sql.zip`)  a partial DB snapshot dump for dev and test purpose.
+Unzip them and place the resulting `dump.sql` file in the repository root.
 
 Import the data with:
 

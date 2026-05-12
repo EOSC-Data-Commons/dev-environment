@@ -34,6 +34,8 @@
     pkgs.prettier
     pkgs.cargo-dist
     pkgs.grpc-health-probe
+    pkgs.tsx
+    pkgs.protobuf_25
     pkgs.openssl # need by coordinator
   ];
 
@@ -346,12 +348,12 @@
   # -> indexing to db (in production this runs async in another thread) -> delete db "admin" -> back to '1'
 
   # --- postgres
-  tasks."db-import:dump-datasetdb" = {
-    exec = "psql -U admin dataset < datasetdb_dump_2026_04_10.sql";
-    status = "datasetdb-needs-dump";
-    # before = [ "db-import:dump-transform-index" ];
-    before = [ "db-import:create-index" ];
-  };
+  # tasks."db-import:dump-datasetdb" = {
+  #   exec = "psql -U admin dataset < datasetdb_dump_2026_04_10.sql";
+  #   status = "datasetdb-needs-dump";
+  #   # before = [ "db-import:dump-transform-index" ];
+  #   before = [ "db-import:create-index" ];
+  # };
 
   tasks."db-import:dump-transform-index" = {
     exec = "psql -U admin dataset < datasetdb_dump_with_transform_2026_04_10.sql";
