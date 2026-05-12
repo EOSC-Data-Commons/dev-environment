@@ -179,6 +179,11 @@
         user = "admin";
         pass = "test";
       }
+      {
+        name = "filedb";
+        user = "admin";
+        pass = "test";
+      }
     ];
   };
 
@@ -353,12 +358,12 @@
     status = "transform-db-needs-dump";
     before = [ "db-import:create-index" ];
   };
-  #
-  # tasks."db-import:dump-filedb" = {
-  #   exec = "psql -U admin dataset < filedb_dump_2026_04_10.sql";
-  #   status = "filedb-needs-dump";
-  #   # before = [ "db-import:create-index" ];
-  # };
+
+  tasks."db-import:dump-filedb" = {
+    exec = "psql -U admin filedb < filedb_dump_2026_04_10.sql";
+    status = "filedb-needs-dump";
+    # before = [ "db-import:create-index" ];
+  };
 
   # index opensearch
   tasks."db-import:create-index" =
@@ -393,10 +398,17 @@
       '';
     };
 
-  tasks."clean:db" = {
+  tasks."clean:dataset-db" = {
     exec = ''
       psql -U $USER -d postgres -c "DROP DATABASE dataset;"
       psql -U $USER -d postgres -c 'CREATE DATABASE dataset OWNER admin;'
+    '';
+  };
+
+  tasks."clean:filedb" = {
+    exec = ''
+      psql -U $USER -d postgres -c "DROP DATABASE filedb;"
+      psql -U $USER -d postgres -c 'CREATE DATABASE filedb OWNER admin;'
     '';
   };
 
