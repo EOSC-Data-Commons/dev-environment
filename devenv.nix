@@ -261,7 +261,7 @@
   };
 
   processes.coordinator = {
-    exec = "cargo run --bin rp-real";
+    exec = "cargo run --bin rp";
     cwd = "./matchmaker/req-packager/";
     process-compose = {
       readiness_probe = {
