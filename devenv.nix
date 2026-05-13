@@ -251,7 +251,7 @@
   # This task is meant to be run after clean without leaving the session.
   tasks."setup:npm" = {
     exec = "npm ci";
-    cwd = ".";
+    cwd = "./matchmaker";
   };
 
   # symmetry clean up the npm
@@ -305,6 +305,7 @@
         export SEARCH_API_URL=${search_api_url} 
         export PLAYER_API_URL=${player_api_url} 
         export PORT=${frontend_port} 
+        npm ci
         tsx server.ts'';
       cwd = "./matchmaker/";
       process-compose = {
