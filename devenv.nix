@@ -24,9 +24,9 @@
   env.OPENSEARCH_PORT = "9200";
   env.INDEX_NAME = "test_datacite";
 
-  env.CELERY_BROKER_URL = "redis://127.0.0.1:6379/0";
-  env.CELERY_RESULT_BACKEND = "redis://127.0.0.1:6379/0";
-  env.CELERY_BATCH_SIZE = 250;
+  env.CELERY_BROKER_URL = "amqp://guest:guest@127.0.0.1:5672";
+  # env.CELERY_RESULT_BACKEND = "redis://127.0.0.1:6379/0";
+  env.CELERY_BATCH_SIZE = 150;
 
   packages = [
     pkgs.nodejs-slim_24
@@ -43,7 +43,7 @@
 
   languages.python = {
     enable = true;
-    version = "3.12.12";
+    version = "3.12.13";
     venv = {
       enable = true;
     };
@@ -83,6 +83,20 @@
       '';
     };
 
+  # services.rabbitmq =
+  #   let
+  #     oldPkgs = import (fetchTarball {
+  #       url = "https://github.com/NixOS/nixpkgs/archive/nixos-25.11.tar.gz";
+  #     }) { };
+  #   in
+  #   {
+  #     package = oldPkgs.rabbitmq-server;
+  #     enable = true;
+  #     configItems = {
+  #       "max_message_size" = "104857600";
+  #     };
+  #   };
+
   tasks."clean:python" = {
     exec = ''
       rm -rf ./.devenv/state/venv/
@@ -90,104 +104,112 @@
     cwd = ".";
   };
 
-  # celery as task worker
-  processes.metadata-warehouse-tasks =
-    let
-      postgres_admin = "admin";
-      postgres_user = "admin";
-      postgres_password = "test";
-      postgres_address = "127.0.0.1";
-      postgres_port = "5432";
-      postgres_db = "dataset";
-    in
-    {
-      # https://docs.celeryq.dev/en/latest/internals/reference/celery.concurrency.solo.html
-      # consider performance, `solo` is single thread pool, no async gain for performance.
-      exec = ''
-        export POSTGRES_ADMIN=${postgres_admin}
-        export POSTGRES_USER=${postgres_user}
-        export POSTGRES_PASSWORD=${postgres_password}
-        export POSTGRES_ADDRESS=${postgres_address}
-        export POSTGRES_PORT=${postgres_port}
-        export POSTGRES_DB=${postgres_db}
-        celery -A tasks worker -E --pool=solo --loglevel=INFO
-      '';
-      cwd = "./metadata-warehouse/src";
-      process-compose = {
-        depends_on.redis.condition = "process_healthy";
-        readiness_probe = {
-          # this is ugly because metadata-warehouse did not properly manage the python package structure.
-          exec.command = ''
-            cd ./metadata-warehouse/src && celery -A tasks status && cd ../..
-          '';
-          initial_delay_seconds = 2;
-          period_seconds = 60;
-          timeout_seconds = 100;
-          success_threshold = 1;
-          failure_threshold = 20;
-        };
-      };
-    };
+  # # celery as task worker
+  # processes.metadata-warehouse-tasks =
+  #   let
+  #     postgres_admin = "admin";
+  #     postgres_user = "admin";
+  #     postgres_password = "test";
+  #     postgres_address = "127.0.0.1";
+  #     postgres_port = "5432";
+  #     postgres_db = "dataset";
+  #   in
+  #   {
+  #     # https://docs.celeryq.dev/en/latest/internals/reference/celery.concurrency.solo.html
+  #     # consider performance, `solo` is single thread pool, no async gain for performance.
+  #     exec = ''
+  #       export POSTGRES_ADMIN=${postgres_admin}
+  #       export POSTGRES_USER=${postgres_user}
+  #       export POSTGRES_PASSWORD=${postgres_password}
+  #       export POSTGRES_ADDRESS=${postgres_address}
+  #       export POSTGRES_PORT=${postgres_port}
+  #       export POSTGRES_DB=${postgres_db}
+  #       celery -A tasks worker -E --loglevel=INFO --concurrency=1 --pool=prefork
+  #     '';
+  #     cwd = "./metadata-warehouse/src";
+  #     process-compose = {
+  #       depends_on.redis.condition = "process_healthy";
+  #       readiness_probe = {
+  #         # this is ugly because metadata-warehouse did not properly manage the python package structure.
+  #         exec.command = ''
+  #           cd ./metadata-warehouse/src && celery -A tasks status && cd ../..
+  #         '';
+  #         initial_delay_seconds = 2;
+  #         period_seconds = 60;
+  #         timeout_seconds = 100;
+  #         success_threshold = 1;
+  #         failure_threshold = 20;
+  #       };
+  #     };
+  #   };
+  #
+  # # https://devenv.sh/processes/
+  # # transform restapi
+  # processes.metadata-warehouse-transform-api =
+  #   let
+  #     postgres_admin = "admin";
+  #     postgres_user = "admin";
+  #     postgres_password = "test";
+  #     postgres_address = "127.0.0.1";
+  #     postgres_port = "5432";
+  #     postgres_db = "dataset";
+  #   in
+  #   {
+  #     exec = ''
+  #       export POSTGRES_ADMIN=${postgres_admin}
+  #       export POSTGRES_USER=${postgres_user}
+  #       export POSTGRES_PASSWORD=${postgres_password}
+  #       export POSTGRES_ADDRESS=${postgres_address}
+  #       export POSTGRES_PORT=${postgres_port}
+  #       export POSTGRES_DB=${postgres_db}
+  #       uvicorn transform:app --host 127.0.0.1 --port 8080
+  #     '';
+  #     cwd = "./metadata-warehouse/src";
+  #     process-compose = {
+  #       readiness_probe = {
+  #         exec.command = ''
+  #           if curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/health | grep -q 200; then
+  #             exit 0
+  #           else
+  #             echo "API not ready yet..." 2>&1
+  #             exit 1
+  #           fi
+  #         '';
+  #         initial_delay_seconds = 2;
+  #         period_seconds = 10;
+  #         timeout_seconds = 4;
+  #         success_threshold = 1;
+  #         failure_threshold = 5;
+  #       };
+  #     };
+  #   };
 
-  # https://devenv.sh/processes/
-  # transform restapi
-  processes.metadata-warehouse-transform-api =
-    let
-      postgres_admin = "admin";
-      postgres_user = "admin";
-      postgres_password = "test";
-      postgres_address = "127.0.0.1";
-      postgres_port = "5432";
-      postgres_db = "dataset";
-    in
-    {
-      exec = ''
-        export POSTGRES_ADMIN=${postgres_admin}
-        export POSTGRES_USER=${postgres_user}
-        export POSTGRES_PASSWORD=${postgres_password}
-        export POSTGRES_ADDRESS=${postgres_address}
-        export POSTGRES_PORT=${postgres_port}
-        export POSTGRES_DB=${postgres_db}
-        uvicorn transform:app --host 127.0.0.1 --port 8080
-      '';
-      cwd = "./metadata-warehouse/src";
-      process-compose = {
-        readiness_probe = {
-          exec.command = ''
-            if curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/health | grep -q 200; then
-              exit 0
-            else
-              echo "API not ready yet..." 2>&1
-              exit 1
-            fi
-          '';
-          initial_delay_seconds = 2;
-          period_seconds = 10;
-          timeout_seconds = 4;
-          success_threshold = 1;
-          failure_threshold = 5;
-        };
-      };
-    };
-
-  services.postgres = {
-    enable = true;
-    package = pkgs.postgresql_17;
-    listen_addresses = "127.0.0.1";
-    port = 5432;
-    initialDatabases = [
-      {
-        name = "dataset";
-        user = "admin";
-        pass = "test";
-      }
-      {
-        name = "filedb";
-        user = "admin";
-        pass = "test";
-      }
-    ];
-  };
+  # services.postgres = {
+  #   enable = true;
+  #   package = pkgs.postgresql_17;
+  #   listen_addresses = "127.0.0.1";
+  #   port = 5432;
+  #   initialScript = ''
+  #   CREATE ROLE postgres SUPERUSER;
+  #   '';
+  #   initialDatabases = [
+  #     {
+  #       name = "dataset";
+  #       user = "admin";
+  #       pass = "test";
+  #     }
+  #     {
+  #       name = "filedb";
+  #       user = "admin";
+  #       pass = "test";
+  #     }
+  #     {
+  #       name = "appdb";
+  #       user = "admin";
+  #       pass = "test";
+  #     }
+  #   ];
+  # };
 
   services.opensearch =
     let
@@ -215,35 +237,39 @@
       num_works = "2";
       host = "127.0.0.1";
       port = "8082";
-      opensearch_url = "127.0.0.1:9200";
-      default_llm_model = "einfracz/gpt-oss-120b";
+      opensearch_url = "192.169.10.19:9200";
+      postgres_address = "192.169.10.19";
+      postgres_port = "5432";
+      postgres_db = "appdb";
     in
     {
       exec = ''
-        export DEFAULT_LLM_MODEL=${default_llm_model} 
         export SERVER_PORT=${port}
         export OPENSEARCH_URL=${opensearch_url}
-        uvicorn data_commons_search.main:app --host ${host} --port ${port} --workers ${num_works} --log-config logging.yml
+        export POSTGRES_ADDRESS=${postgres_address}
+        export POSTGRES_PORT=${postgres_port}
+        export POSTGRES_DB=${postgres_db}
+        uvicorn data_commons_search.main:app --host ${host} --port ${port} --workers ${num_works} 
       '';
       cwd = "./data-commons-search/";
-      process-compose = {
-        depends_on.opensearch.condition = "process_healthy";
-        readiness_probe = {
-          exec.command = ''
-            if curl -s -o /dev/null -w "%{http_code}" http://${host}:${port}/ | grep -q 200; then
-              exit 0
-            else
-              echo "API not ready yet..." 2>&1
-              exit 1
-            fi
-          '';
-          initial_delay_seconds = 2;
-          period_seconds = 10;
-          timeout_seconds = 4;
-          success_threshold = 1;
-          failure_threshold = 5;
-        };
-      };
+      # process-compose = {
+      #   depends_on.opensearch.condition = "process_healthy";
+      #   readiness_probe = {
+      #     exec.command = ''
+      #       if curl -s -o /dev/null -w "%{http_code}" http://${host}:${port}/ | grep -q 200; then
+      #         exit 0
+      #       else
+      #         echo "API not ready yet..." 2>&1
+      #         exit 1
+      #       fi
+      #     '';
+      #     initial_delay_seconds = 2;
+      #     period_seconds = 10;
+      #     timeout_seconds = 4;
+      #     success_threshold = 1;
+      #     failure_threshold = 5;
+      #   };
+      # };
     };
 
   # install js dependencies in the project folder, start frontend process (run dev) in the matchmaker folder
@@ -268,10 +294,10 @@
     process-compose = {
       readiness_probe = {
         exec.command = ''
-          # `grpc-health-probe -addr=[::1]:50051 -service=coordinator.v1.DataplayerService`
+          # `grpc-health-probe -addr=127.0.0.1:50051 -service=coordinator.v1.DataplayerService`
           # command probe for a service, but here I assume when coordinator running all services are good.
           # in the production deployment, I should probe every sub services and give extensive log.
-          OUTPUT=$(grpc-health-probe -addr=[::1]:50051 2>&1)
+          OUTPUT=$(grpc-health-probe -addr=127.0.0.1:50051 2>&1)
 
           if echo "$OUTPUT" | grep -q SERVING; then
             exit 0
@@ -294,23 +320,28 @@
     let
       # must include 'http' since the value is used for vite proxy.
       search_api_url = "http://127.0.0.1:8082";
-      player_api_url = "https://dev1.player.eosc-data-commons.eu";
 
       # NOTE: don't change
       # the dev port is hardcoded in the matchmaker at vite config. I won't bother to make it customizable.
       frontend_port = "5173";
+
+      # in staging: grpc.eosc-coordinator.ethz.ch:443
+      # in production: 127.0.0.1:50051 as well but managed in docker-compose.
+      GRPC_TARGET = "127.0.0.1:50051";
+      # GRPC_TARGET = "192.168.10.19:50051";
+      # GRPC_TARGET = "grpc.eosc-coordinator.ethz.ch:443";
     in
     {
       exec = ''
+        export GRPC_TARGET=${GRPC_TARGET}
         export SEARCH_API_URL=${search_api_url} 
-        export PLAYER_API_URL=${player_api_url} 
         export PORT=${frontend_port} 
         npm ci
         tsx server.ts'';
       cwd = "./matchmaker/";
       process-compose = {
-        depends_on.data-commons-search.condition = "process_healthy";
-        depends_on.coordinator.condition = "process_healthy";
+        # depends_on.data-commons-search.condition = "process_healthy";
+        # depends_on.coordinator.condition = "process_healthy";
         readiness_probe = {
           exec.command = ''
             if curl -s -o /dev/null -w "%{http_code}" http://localhost:${frontend_port}/ | grep -q 200; then
@@ -341,7 +372,13 @@
       echo "Redis server stopped, cleaning up..."
       rm -rf ./redis-data
     '';
-    after = [ "devenv:processes:redis" ];
+  };
+
+  tasks."clean:rmq" = {
+    exec = ''
+      echo "Rabbitmq server stopped, cleaning up..."
+      rm -rf ./rabbitmq-data
+    '';
   };
 
   # NOTE: the lift-cycle of manually full example data creating and clear is:
@@ -412,6 +449,13 @@
     exec = ''
       psql -U $USER -d postgres -c "DROP DATABASE filedb;"
       psql -U $USER -d postgres -c 'CREATE DATABASE filedb OWNER admin;'
+    '';
+  };
+
+  tasks."clean:appdb" = {
+    exec = ''
+      psql -U $USER -d postgres -c "DROP DATABASE appdb;"
+      psql -U $USER -d postgres -c 'CREATE DATABASE appdb OWNER admin;'
     '';
   };
 

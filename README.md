@@ -260,3 +260,31 @@ For the maintainers of this repo, to update the submodules and update `uv.lock`,
 git submodule update --remote
 devenv tasks run dev:uv-sync
 ```
+
+### How to generate oidc token for test
+
+Following the doc: https://docs.egi.eu/users/aai/check-in/obtaining-tokens/oidc-agent/
+
+oidc token can be generate using `oidc-agent` in command line for test purpose.
+After installation, start the agent.
+
+```console
+oidc-agent-service start
+# oidc-agent-service stop
+```
+
+Issue the token, using the issuer, egi has three, dev, demo, and prod.
+
+```console
+oidc-gen --pub --issuer https://aai-dev.egi.eu/auth/realms/egi
+```
+
+It will open a login page in the browser ask to login and set the token.
+When all finished, you can check your token by:
+
+```console
+oidc-token <name-of-token>
+```
+
+`name-of-token` is what you are asked gave in the issuing step.
+
